@@ -2,7 +2,7 @@
   "bot-account": {
     "username": "GANDOFCHADAUNCLE", 
     "password": "",
-    "type": "mojang"
+    "type": "offline"
   },
 
   "server": {
@@ -26,7 +26,7 @@
 
     "anti-afk": {
       "enabled": true,
-      "sneak": true
+      "sneak": false 
     },
 
     "chat-messages": {
@@ -43,6 +43,6 @@
 
     "chat-log": true,
     "auto-reconnect": true,
-    "auto-recconect-delay": 5000
+    "auto-recconect-delay": 18000
   }
 }
