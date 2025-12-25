@@ -1,7 +1,6 @@
 const mineflayer = require('mineflayer');
 const settings = require('./settings.json');
 
-// Slobos plugins
 const autoeat = require('mineflayer-auto-eat').plugin;
 const armorManager = require('mineflayer-armor-manager');
 const pvp = require('mineflayer-pvp').plugin;
@@ -16,7 +15,6 @@ function startBot() {
     version: settings.server.version
   });
 
-  // load plugins
   bot.loadPlugin(autoeat);
   bot.loadPlugin(armorManager);
   bot.loadPlugin(pvp);
@@ -24,7 +22,6 @@ function startBot() {
   bot.once('spawn', () => {
     console.log('Bot spawned and joined server');
 
-    // auto-eat events
     bot.on('autoeat_started', () => {
       console.log('Auto Eat started!');
     });
@@ -39,24 +36,18 @@ function startBot() {
       bannedFood: []
     };
 
-    // anti-AFK loop (simple movement + rotation)
     setInterval(() => {
       if (!bot.entity || !bot.entity.position) return;
 
       bot.setControlState('jump', true);
-      setTimeout(() => {
-        bot.setControlState('jump', false);
-      }, 300);
+      setTimeout(() => bot.setControlState('jump', false), 300);
 
       bot.look(bot.entity.yaw + 0.5, 0, true);
 
       bot.setControlState('forward', true);
-      setTimeout(() => {
-        bot.setControlState('forward', false);
-      }, 500);
-    }, 10000); // every 10 seconds
+      setTimeout(() => bot.setControlState('forward', false), 500);
+    }, 10000);
 
-    // log chat
     bot.on('chat', (username, message) => {
       if (username === bot.username) return;
       console.log(`<${username}> ${message}`);
@@ -88,5 +79,4 @@ function safeRestart() {
   setTimeout(startBot, 10000);
 }
 
-// start first instance
 startBot();
