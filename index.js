@@ -1,172 +1,95 @@
 const mineflayer = require('mineflayer');
-const Movements = require('mineflayer-pathfinder').Movements;
-const pathfinder = require('mineflayer-pathfinder').pathfinder;
-const { GoalBlock } = require('mineflayer-pathfinder').goals;
+const settings = require('./settings.json');
 
-const config = require('./settings.json');
-const express = require('express');
+// original Slobos plugins
+const autoeat = require('mineflayer-auto-eat').plugin;
+const armorManager = require('mineflayer-armor-manager');
+const pvp = require('mineflayer-pvp').plugin;
 
-const app = express();
+let bot;
 
-app.get('/', (req, res) => {
-  res.send('Bot has arrived');
-});
+function startBot() {
+  bot = mineflayer.createBot({
+    host: settings.ip,
+    port: settings.port,
+    username: settings.username,
+    version: settings.version
+  });
 
-app.listen(8000, () => {
-  console.log('Server started');
-});
+  // load plugins
+  bot.loadPlugin(autoeat);
+  bot.loadPlugin(armorManager);
+  bot.loadPlugin(pvp);
 
-function createBot() {
-   const bot = mineflayer.createBot({
-      username: config['bot-account']['username'],
-      password: config['bot-account']['password'],
-      auth: config['bot-account']['type'],
-      host: config.server.ip,
-      port: config.server.port,
-      version: config.server.version,
-   });
+  bot.once('spawn', () => {
+    console.log('Bot spawned and joined server');
 
-   bot.loadPlugin(pathfinder);
-   const mcData = require('minecraft-data')(bot.version);
-   const defaultMove = new Movements(bot, mcData);
-   bot.settings.colorsEnabled = false;
+    // ================= ORIGINAL BEHAVIOUR =================
 
-   let pendingPromise = Promise.resolve();
+    // auto-eat events
+    bot.on('autoeat_started', () => {
+      console.log('Auto Eat started!');
+    });
 
-   function sendRegister(password) {
-      return new Promise((resolve, reject) => {
-         bot.chat(`/register ${password} ${password}`);
-         console.log(`[Auth] Sent /register command.`);
+    bot.on('autoeat_stopped', () => {
+      console.log('Auto Eat stopped!');
+    });
 
-         bot.once('chat', (username, message) => {
-            console.log(`[ChatLog] <${username}> ${message}`); // Log all chat messages
+    bot.autoEat.options = {
+      priority: 'foodPoints',
+      startAt: 14,
+      bannedFood: []
+    };
 
-            // Check for various possible responses
-            if (message.includes('successfully registered')) {
-               console.log('[INFO] Registration confirmed.');
-               resolve();
-            } else if (message.includes('already registered')) {
-               console.log('[INFO] Bot was already registered.');
-               resolve(); // Resolve if already registered
-            } else if (message.includes('Invalid command')) {
-               reject(`Registration failed: Invalid command. Message: "${message}"`);
-            } else {
-               reject(`Registration failed: unexpected message "${message}".`);
-            }
-         });
-      });
-   }
+    // anti-AFK loop (simple movement + rotation)
+    setInterval(() => {
+      if (!bot.entity || !bot.entity.position) return;
 
-   function sendLogin(password) {
-      return new Promise((resolve, reject) => {
-         bot.chat(`/login ${password}`);
-         console.log(`[Auth] Sent /login command.`);
+      bot.setControlState('jump', true);
+      setTimeout(() => {
+        bot.setControlState('jump', false);
+      }, 300);
 
-         bot.once('chat', (username, message) => {
-            console.log(`[ChatLog] <${username}> ${message}`); // Log all chat messages
+      bot.look(bot.entity.yaw + 0.5, 0, true);
 
-            if (message.includes('successfully logged in')) {
-               console.log('[INFO] Login successful.');
-               resolve();
-            } else if (message.includes('Invalid password')) {
-               reject(`Login failed: Invalid password. Message: "${message}"`);
-            } else if (message.includes('not registered')) {
-               reject(`Login failed: Not registered. Message: "${message}"`);
-            } else {
-               reject(`Login failed: unexpected message "${message}".`);
-            }
-         });
-      });
-   }
+      bot.setControlState('forward', true);
+      setTimeout(() => {
+        bot.setControlState('forward', false);
+      }, 500);
+    }, 10000); // every 10 seconds
 
-   bot.once('spawn', () => {
-      console.log('\x1b[33m[AfkBot] Bot joined the server', '\x1b[0m');
+    // log chat
+    bot.on('chat', (username, message) => {
+      if (username === bot.username) return;
+      console.log(`<${username}> ${message}`);
+    });
 
-      if (config.utils['auto-auth'].enabled) {
-         console.log('[INFO] Started auto-auth module');
+    // =============== END ORIGINAL BEHAVIOUR ===============
+  });
 
-         const password = config.utils['auto-auth'].password;
+  bot.on('kicked', (reason) => {
+    console.log('Bot kicked:', reason);
+  });
 
-         pendingPromise = pendingPromise
-            .then(() => sendRegister(password))
-            .then(() => sendLogin(password))
-            .catch(error => console.error('[ERROR]', error));
-      }
+  bot.on('error', (err) => {
+    console.log('Bot error:', err.code, err.message);
+    if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
+      console.log('Connection reset/broken, restarting in 10s');
+      safeRestart();
+    }
+  });
 
-      if (config.utils['chat-messages'].enabled) {
-         console.log('[INFO] Started chat-messages module');
-         const messages = config.utils['chat-messages']['messages'];
-
-         if (config.utils['chat-messages'].repeat) {
-            const delay = config.utils['chat-messages']['repeat-delay'];
-            let i = 0;
-
-            let msg_timer = setInterval(() => {
-               bot.chat(`${messages[i]}`);
-
-               if (i + 1 === messages.length) {
-                  i = 0;
-               } else {
-                  i++;
-               }
-            }, delay * 1000);
-         } else {
-            messages.forEach((msg) => {
-               bot.chat(msg);
-            });
-         }
-      }
-
-      const pos = config.position;
-
-      if (config.position.enabled) {
-         console.log(
-            `\x1b[32m[Afk Bot] Starting to move to target location (${pos.x}, ${pos.y}, ${pos.z})\x1b[0m`
-         );
-         bot.pathfinder.setMovements(defaultMove);
-         bot.pathfinder.setGoal(new GoalBlock(pos.x, pos.y, pos.z));
-      }
-
-      if (config.utils['anti-afk'].enabled) {
-         bot.setControlState('jump', true);
-         if (config.utils['anti-afk'].sneak) {
-            bot.setControlState('sneak', true);
-         }
-      }
-   });
-
-   bot.on('goal_reached', () => {
-      console.log(
-         `\x1b[32m[AfkBot] Bot arrived at the target location. ${bot.entity.position}\x1b[0m`
-      );
-   });
-
-   bot.on('death', () => {
-      console.log(
-         `\x1b[33m[AfkBot] Bot has died and was respawned at ${bot.entity.position}`,
-         '\x1b[0m'
-      );
-   });
-
-   if (config.utils['auto-reconnect']) {
-      bot.on('end', () => {
-         setTimeout(() => {
-            createBot();
-         }, config.utils['auto-recconect-delay']);
-      });
-   }
-
-   bot.on('kicked', (reason) =>
-      console.log(
-         '\x1b[33m',
-         `[AfkBot] Bot was kicked from the server. Reason: \n${reason}`,
-         '\x1b[0m'
-      )
-   );
-
-   bot.on('error', (err) =>
-      console.log(`\x1b[31m[ERROR] ${err.message}`, '\x1b[0m')
-   );
+  bot.on('end', () => {
+    console.log('Bot ended, restarting in 10s');
+    safeRestart();
+  });
 }
 
-createBot();
+function safeRestart() {
+  try {
+    if (bot) bot.end();
+  } catch (e) {}
+  setTimeout(startBot, 10000);
+}
+
+startBot();
