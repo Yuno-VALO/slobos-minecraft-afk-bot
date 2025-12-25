@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 const settings = require('./settings.json');
 
-// original Slobos plugins
+// Slobos plugins
 const autoeat = require('mineflayer-auto-eat').plugin;
 const armorManager = require('mineflayer-armor-manager');
 const pvp = require('mineflayer-pvp').plugin;
@@ -10,10 +10,10 @@ let bot;
 
 function startBot() {
   bot = mineflayer.createBot({
-    host: settings.ip,
-    port: settings.port,
-    username: settings.username,
-    version: settings.version
+    host: settings.server.ip,
+    port: settings.server.port,
+    username: settings['bot-account'].username,
+    version: settings.server.version
   });
 
   // load plugins
@@ -23,8 +23,6 @@ function startBot() {
 
   bot.once('spawn', () => {
     console.log('Bot spawned and joined server');
-
-    // ================= ORIGINAL BEHAVIOUR =================
 
     // auto-eat events
     bot.on('autoeat_started', () => {
@@ -63,8 +61,6 @@ function startBot() {
       if (username === bot.username) return;
       console.log(`<${username}> ${message}`);
     });
-
-    // =============== END ORIGINAL BEHAVIOUR ===============
   });
 
   bot.on('kicked', (reason) => {
@@ -92,4 +88,5 @@ function safeRestart() {
   setTimeout(startBot, 10000);
 }
 
+// start first instance
 startBot();
