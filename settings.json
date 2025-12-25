@@ -1,8 +1,8 @@
 {
   "bot-account": {
-    "username": "CHADAUNCLE", 
+    "username": "Suhaas", 
     "password": "",
-    "type": "offline"
+    "type": "mojang"
   },
 
   "server": {
@@ -26,7 +26,7 @@
 
     "anti-afk": {
       "enabled": true,
-      "sneak": false 
+      "sneak": true
     },
 
     "chat-messages": {
@@ -43,6 +43,6 @@
 
     "chat-log": true,
     "auto-reconnect": true,
-    "auto-recconect-delay": 18000
+    "auto-recconect-delay": 5000
   }
 }
